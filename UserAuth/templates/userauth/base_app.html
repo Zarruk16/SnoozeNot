@@ -1,0 +1,52 @@
+{% extends "userauth/base.html" %}
+{% load static %}
+
+{% block body %}
+<div class="app-layout">
+  <div class="mobile-header">
+    <a class="brand" href="{% url 'UserAuth:Dashboard' %}">
+      <div class="brand-logo">SN</div>
+      <span class="brand-name">SnoozeNot</span>
+    </a>
+    <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+  </div>
+
+  {% include "userauth/partials/sidebar.html" %}
+
+  <main class="main-content">
+    {% if messages %}
+    <div class="flash-messages">
+      {% for message in messages %}
+      <div class="flash flash-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if user.is_authenticated and smtp_configured and gmail_sender_mismatch %}
+    <div class="flash-messages">
+      <div class="flash flash-warning">
+        <strong>Reminders are sent through your personal Gmail ({{ smtp_sender_email }}).</strong>
+        Gmail always shows that account's profile photo, even when the From address is set to noreply.
+        Create a dedicated SnoozeNot Gmail account, set its profile picture to your app logo,
+        and use that account's App Password in <code>.env</code> for <code>EMAIL_HOST_USER</code>.
+      </div>
+    </div>
+    {% elif user.is_authenticated and not smtp_configured %}
+    <div class="flash-messages">
+      <div class="flash flash-warning">
+        <strong>Reminder emails are not being delivered to your inbox.</strong>
+        Add your Gmail and App Password to <code>.env</code>, then restart the server.
+        {% if reminder_email %}
+        Reminders will be sent to: <strong>{{ reminder_email }}</strong>
+        {% else %}
+        Your account has no email address — use an account signed up with email.
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% block page_header %}{% endblock %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{% static 'js/snoozenot.js' %}"></script>
+{% block extra_js %}{% endblock %}
+{% endblock %}

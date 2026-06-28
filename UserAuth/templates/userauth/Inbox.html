@@ -1,124 +1,63 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inbox — SnoozeNot</title>
+{% extends "userauth/base_app.html" %}
 
-<style>
-    body { background: #000; color: #eaeaea; font-family: "Inter", sans-serif; margin:0; padding:25px; }
-    .container { max-width: 1200px; margin:0 auto; }
-    h1 { color: #ff6600; font-size:2rem; font-weight:700; margin-bottom:25px; border-bottom:2px solid #1e1e1e; padding-bottom:10px; }
+{% block title %}Inbox — SnoozeNot{% endblock %}
 
-    table { width:100%; border-collapse:collapse; border-radius:8px; overflow:hidden; background:#0d0d0d; }
-    th { background:#1b1b1b; padding:14px 10px; text-transform:uppercase; font-size:0.8rem; color:#bbb; }
-    td { padding:14px 10px; border-bottom:1px solid #1b1b1b; }
-    tr:hover { background:#121212; }
-    
-    th, td {
-    vertical-align: middle;
-    padding: 12px 10px;}
-
-    th:nth-child(1), td:nth-child(1) { width: 60px; text-align:  center; } /* Done */
-    th:nth-child(2), td:nth-child(3) { width: auto; text-align:  left; } /* Task */
-    th:nth-child(3), td:nth-child(4) { width: 150px; text-align: left; } /* Reminder Time */
-    th:nth-child(4), td:nth-child(5) { width: 120px; text-align: left; } /* Category */
-    th:nth-child(5), td:nth-child(6) { width: 120px; text-align: left; } /* Actions */
-
-    input[type="checkbox"] { accent-color:#ff6600; width:18px; height:18px; }
-
-    .status-work { color:#ff6600; font-weight:600; }
-    .status-study { color:#4aa3ff; font-weight:600; }
-    .status-personal { color:#33cc33; font-weight:600; }
-    .status-others { color:#ff33aa; font-weight:600; }
-
-    .action-button { background:transparent; border:none; color:#ff6600; font-size:0.9rem; cursor:pointer; text-decoration:none; }
-    .action-button:hover { text-decoration:underline; }
-
-    .btn-back-dashboard { display:inline-block; margin-top:25px; padding:10px 16px; background:#ff6600; border:1px solid #ff6600; color:#000; border-radius:6px; font-weight:600; text-decoration:none; transition:0.2s; }
-    .btn-back-dashboard:hover { background:#e65a00; border-color:#e65a00; }
-</style>
-</head>
-
-<body>
-<div class="container">
-
-<h1>Inbox</h1>
-
-<table>
-<thead>
-<tr>
-    <th>Done</th>
-    <th>Task</th>
-    <th>Reminder Time</th>
-    <th>Category</th>
-    <th>Actions</th>
-</tr>
-</thead>
-
-<tbody>
-    {% for task in tasks %}
-<tr>
-    <td>
-        <input type="checkbox" {% if task.completed %}checked{% endif %}
-        onclick="toggleTask({{ task.id }})">
-
-    </td>
-    
-
-    <td>{{ task.title }}</td>
-    
-    <!-- Due Date -->
-<td>
-    {% if task.due_time %}
-        {{ task.due_time|date:"M d, Y H:i" }}
-    {% else %}
-        <span style="color:#888;">No date</span>
-    {% endif %}
-</td>
-
-    <td class="status-{{ task.categories|lower }}">{{ task.categories|title }}</td>
-
-    <td>
-        <a href="{% url 'UserAuth:edit_task' task.id %}" class="action-button">Edit</a>
-
-        <button class="action-button" onclick="deleteTask({{ task.id }})">Delete</button>
-    </td>
-</tr>
-
- {% empty %}
-<tr>
-    <td colspan="5" style="text-align:center; font-style:italic;">
-        No tasks yet.
-    </td>
-</tr>
-{% endfor %}
-
-</tbody>
-</table>
-
-<a href="{% url 'UserAuth:Dashboard' %}" class="btn-back-dashboard">Dashboard</a>
+{% block page_header %}
+<div class="page-header">
+  <h1>Inbox</h1>
+  <p>All your pending tasks in one place.</p>
 </div>
+{% endblock %}
 
-<script>
-function deleteTask(taskId) {
-    if(!confirm("Delete this task?")) return;
-    fetch("{% url 'UserAuth:delete_task' 0 %}".replace('0', taskId), {
-        method:"POST",
-        headers:{"X-CSRFToken":"{{ csrf_token }}","Content-Type":"application/json"},
-        body: JSON.stringify({})
-    }).then(res=>res.json()).then(data=>{if(data.ok) location.reload();});
-}
-
-function toggleTask(taskId) {
-    fetch("{% url 'UserAuth:toggle_task' 0 %}".replace('0', taskId), {
-        method:"POST",
-        headers:{"X-CSRFToken":"{{ csrf_token }}","Content-Type":"application/json"},
-        body: JSON.stringify({})
-    }).then(res=>res.json()).then(data=>{if(data.ok) location.reload();});
-}
-</script>
-
-</body>
-</html>
+{% block content %}
+<div class="table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:50px;">Done</th>
+        <th>Task</th>
+        <th>Due</th>
+        <th>Category</th>
+        <th style="width:120px;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>
+          <input type="checkbox" class="task-checkbox"
+                 {% if task.completed %}checked{% endif %}
+                 onclick="toggleTask({{ task.id }})">
+        </td>
+        <td>
+          <div style="font-weight:500;">{{ task.title }}</div>
+          {% if task.details %}
+          <div class="text-muted" style="font-size:0.8125rem;margin-top:2px;">{{ task.details|truncatechars:80 }}</div>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="font-size:0.8125rem;">
+          {% if task.due_time %}{{ task.due_time|date:"M d, Y · g:i A" }}{% else %}No date{% endif %}
+        </td>
+        <td><span class="badge badge-{{ task.categories|lower }}">{{ task.categories|title }}</span></td>
+        <td>
+          <div class="task-actions">
+            <a class="task-link" href="{% url 'UserAuth:edit_task' task.id %}">Edit</a>
+            <button class="btn-icon" onclick="deleteTask({{ task.id }})" title="Delete">✕</button>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <div class="empty-state-icon">📥</div>
+            <p>Your inbox is empty. Add a task to get started!</p>
+            <a class="btn btn-primary btn-sm" href="{% url 'UserAuth:todo_list' %}" style="margin-top:16px;">Add Task</a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

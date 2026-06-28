@@ -5,15 +5,18 @@ from django.utils import timezone
 from django.db.models import Sum, Q
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from datetime import date, datetime, time
 from django.shortcuts import render
 from .models import Task
 from .forms import SignUpForm, LoginForm
+from .reminders import parse_due_date_time, local_due_parts, process_due_reminders
+from .email_utils import reminder_delivery_message, scheduled_reminder_message, smtp_is_configured
 import json
 
 
 def Home_view(request):
-    return render(request, "UserAuth/home.html")
+    return render(request, "userauth/Home.html")
 
 
 def signup_view(request):
@@ -41,7 +44,7 @@ def login_view(request):
 
 def logout_view(request):
     logout(request)
-    return redirect("UserAuth:login")
+    return redirect("home")
 
 from django.utils import timezone
 from django.db.models import Q
@@ -114,9 +117,12 @@ def add_task(request):
         title = request.POST.get("title", "").strip()
         details = request.POST.get("details", "").strip()
         category = request.POST.get("category", "work")
-        due_time = request.POST.get("end_datetime")
+        due_time = parse_due_date_time(
+            request.POST.get("due_date"),
+            request.POST.get("due_time"),
+            request.POST.get("user_tz"),
+        )
 
-        # 1️⃣ Create the Task
         task = Task.objects.create(
             user=request.user,
             title=title,
@@ -125,7 +131,27 @@ def add_task(request):
             due_time=due_time,
         )
 
-        
+        if due_time and not request.user.email:
+            messages.warning(
+                request,
+                'Add an email to your account to receive reminder notifications.',
+            )
+        elif due_time:
+            if due_time > timezone.now():
+                msg = scheduled_reminder_message(timezone.localtime(due_time))
+                if smtp_is_configured():
+                    messages.success(request, msg)
+                else:
+                    messages.warning(request, msg)
+            else:
+                sent = process_due_reminders()
+                msg = reminder_delivery_message(sent)
+                if msg:
+                    if smtp_is_configured():
+                        messages.success(request, msg)
+                    else:
+                        messages.warning(request, msg)
+
         return redirect('UserAuth:Inbox')
 
     return render(request, "UserAuth/add_task.html")
@@ -179,7 +205,6 @@ def delete_task(request, pk):
 
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
-from django.utils.dateparse import parse_datetime  # <- import this
 from .models import Task
 
 @login_required
@@ -189,20 +214,56 @@ def edit_task(request, pk):
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
         details = request.POST.get('details', '').strip()
-        end_datetime_str = request.POST.get('end_datetime')
 
         if title:
             task.title = title
             task.details = details
 
-            if end_datetime_str:
-                dt = parse_datetime(end_datetime_str)
+            due_date = request.POST.get('due_date', '').strip()
+            due_time_str = request.POST.get('due_time', '').strip()
+            user_tz = request.POST.get('user_tz')
+
+            if due_date and due_time_str:
+                dt = parse_due_date_time(due_date, due_time_str, user_tz)
+                due_changed = task.due_time != dt
+                if due_changed:
+                    task.reminder_sent = False
                 task.due_time = dt
+            else:
+                task.due_time = None
+                task.reminder_sent = False
 
             task.save()
-            return redirect('UserAuth:Inbox')  # redirect to inbox or task list
+            sent = process_due_reminders()
 
-    return render(request, 'UserAuth/edit_task.html', {'task': task})
+            if task.due_time and not request.user.email:
+                messages.warning(
+                    request,
+                    'Add an email to your account to receive reminder notifications.',
+                )
+            elif task.due_time:
+                if task.due_time > timezone.now():
+                    msg = scheduled_reminder_message(timezone.localtime(task.due_time))
+                    if smtp_is_configured():
+                        messages.success(request, msg)
+                    else:
+                        messages.warning(request, msg)
+                else:
+                    msg = reminder_delivery_message(sent)
+                    if msg:
+                        if smtp_is_configured():
+                            messages.success(request, msg)
+                        else:
+                            messages.warning(request, msg)
+
+            return redirect('UserAuth:Inbox')
+
+    value_date, value_time = local_due_parts(task.due_time)
+    return render(request, 'UserAuth/edit_task.html', {
+        'task': task,
+        'value_date': value_date,
+        'value_time': value_time,
+    })
 
 
 from django.shortcuts import render

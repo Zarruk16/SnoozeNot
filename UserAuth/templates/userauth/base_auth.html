@@ -1,0 +1,22 @@
+{% extends "userauth/base.html" %}
+{% load static %}
+
+{% block body %}
+<div class="auth-layout">
+  <div class="auth-card">
+    <div class="auth-header">
+      <a href="{% url 'home' %}">
+        <div class="brand-logo">SN</div>
+      </a>
+      <h1>{% block auth_title %}Welcome back{% endblock %}</h1>
+      <p>{% block auth_subtitle %}{% endblock %}</p>
+    </div>
+
+    {% block auth_content %}{% endblock %}
+
+    <div class="auth-footer">
+      {% block auth_footer %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

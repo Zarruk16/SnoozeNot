@@ -1,0 +1,14 @@
+Hi {{ user.username }},
+
+Your SnoozeNot task is due now.
+
+Task: {{ task.title }}
+{% if task.details %}Details: {{ task.details }}
+{% endif %}Category: {{ task.get_categories_display }}
+Due: {{ due_display }}
+
+{% if site_url %}Open SnoozeNot: {{ site_url }}
+{% endif %}
+You received this because you set a due time in SnoozeNot. Please do not reply.
+
+— SnoozeNot

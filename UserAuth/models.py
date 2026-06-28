@@ -19,6 +19,7 @@ class Task(models.Model):
     focused_minutes = models.PositiveIntegerField(default=0)
     distraction_count = models.PositiveIntegerField(default=0)
     reminder_time = models.DateTimeField(null=True, blank=True)
+    reminder_sent = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
